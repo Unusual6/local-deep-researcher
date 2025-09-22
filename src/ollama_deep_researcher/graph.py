@@ -8,6 +8,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_ollama import ChatOllama
 from langgraph.graph import START, END, StateGraph
+from langchain_openai import ChatOpenAI
 
 from ollama_deep_researcher.configuration import Configuration, SearchAPI
 from ollama_deep_researcher.utils import (
@@ -119,7 +120,7 @@ def get_llm(configurable: Configuration):
                 temperature=0,
                 format="json",
             )
-    else:  # Default to Ollama
+    elif configurable.llm_provider == "ollama":  # Default to Ollama
         if configurable.use_tool_calling:
             return ChatOllama(
                 base_url=configurable.ollama_base_url,
@@ -133,6 +134,26 @@ def get_llm(configurable: Configuration):
                 temperature=0,
                 format="json",
             )
+    else:
+        if configurable.use_tool_calling:
+            return ChatOpenAI(
+                    model="Qwen3-8B-FP8",    # 你最初的模型，无需换！
+                    api_key="1756891290237NvNud1IzoEnGtlNncoB1uWl",
+                    openai_api_base="http://120.204.73.73:8033/api/ai-gateway/v1",
+                    temperature=0.6,
+                    # top_p=0.9,
+                    max_tokens=1024,
+                )
+        else:
+            return ChatOpenAI(
+                model="Qwen3-8B-FP8",    # 你最初的模型，无需换！
+                    api_key="1756891290237NvNud1IzoEnGtlNncoB1uWl",
+                    openai_api_base="http://120.204.73.73:8033/api/ai-gateway/v1",
+                    temperature=0.6,
+                    # top_p=0.9,
+                    max_tokens=1024,
+                    # format="json",
+                )
 
 # Nodes
 def generate_query(state: SummaryState, config: RunnableConfig):
@@ -306,12 +327,20 @@ def summarize_sources(state: SummaryState, config: RunnableConfig):
             model=configurable.local_llm,
             temperature=0,
         )
-    else:  # Default to Ollama
+    elif configurable.llm_provider == "Ollama":
         llm = ChatOllama(
             base_url=configurable.ollama_base_url,
             model=configurable.local_llm,
             temperature=0,
         )
+    else :
+        llm =  ChatOpenAI(
+                model="Qwen3-8B-FP8",    # 你最初的模型，无需换！
+                api_key="1756891290237NvNud1IzoEnGtlNncoB1uWl",
+                openai_api_base="http://120.204.73.73:8033/api/ai-gateway/v1",
+                temperature=0.6,
+            )
+            
 
     result = llm.invoke(
         [
@@ -450,15 +479,15 @@ builder = StateGraph(
 )
 builder.add_node("generate_query", generate_query)
 builder.add_node("web_research", web_research)
-builder.add_node("summarize_sources", summarize_sources)
+# builder.add_node("summarize_sources", summarize_sources)
 builder.add_node("reflect_on_summary", reflect_on_summary)
 builder.add_node("finalize_summary", finalize_summary)
 
 # Add edges
 builder.add_edge(START, "generate_query")
 builder.add_edge("generate_query", "web_research")
-builder.add_edge("web_research", "summarize_sources")
-builder.add_edge("summarize_sources", "reflect_on_summary")
+builder.add_edge("web_research", "reflect_on_summary")
+# builder.add_edge("summarize_sources", "reflect_on_summary")
 builder.add_conditional_edges("reflect_on_summary", route_research)
 builder.add_edge("finalize_summary", END)
 
