@@ -27,11 +27,11 @@ class Configuration(BaseModel):
         description="Name of the LLM model to use",
     )
 
-
     llm_provider: Literal["ollama", "lmstudio","openai"] = Field(
         default="openai",
 
        title="LLM Provider",
+
         description="Provider for the LLM (Ollama or LMStudio)",
     )
     search_api: Literal["perplexity", "tavily", "duckduckgo", "searxng"] = Field(
