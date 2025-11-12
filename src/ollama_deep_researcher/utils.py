@@ -6,7 +6,6 @@ from typing import Dict, Any, List, Union, Optional
 from markdownify import markdownify
 from langsmith import traceable
 from tavily import TavilyClient
-from duckduckgo_search import DDGS
 
 from langchain_community.utilities import SearxSearchWrapper
 
@@ -161,6 +160,27 @@ def fetch_raw_content(url: str) -> Optional[str]:
         print(f"Warning: Failed to fetch full page content for {url}: {str(e)}")
         return None
 
+# 1. 替换导入（顶部或函数内的导入）
+# 旧代码：from duckduckgo_search import DDGS
+from ddgs import DDGS  # 改为新包的导入
+
+# @traceable
+# def duckduckgo_search(query: str, max_results: int = 3, fetch_full_page: bool = False) -> dict:
+#     try:
+#         results = []
+#         # 用新包的 DDGS 实例调用 search 方法（参数兼容）
+#         with DDGS() as ddgs:
+#             # 注意：新包的 search 方法返回生成器，需遍历获取结果
+#             for result in ddgs.text(query, max_results=5):  # max_results 可调整
+#                 results.append({
+#                     "title": result.get("title", ""),
+#                     "link": result.get("href", ""),
+#                     "snippet": result.get("body", "")
+#                 })
+#         return {"results": results}
+#     except Exception as e:
+#         print(f"Error in DuckDuckGo search: {str(e)}")
+#         return {"results": []}
 
 @traceable
 def duckduckgo_search(
