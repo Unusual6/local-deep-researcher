@@ -4,8 +4,10 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain_core.messages import AIMessage
-from src.ollama_deep_researcher.tools1 import llm_calculator_tool,generate_xdl_protocol
-from src.ollama_deep_researcher.tools1 import query_edge_server,dispatch_task_and_monitor
+from ollama_deep_researcher.tools import llm_calculator_tool,generate_xdl_protocol
+from ollama_deep_researcher.tools import query_edge_server,dispatch_task_and_monitor
+
+from ollama_deep_researcher.redis_test import run_or_resume
 
 tools = [llm_calculator_tool,generate_xdl_protocol,query_edge_server,dispatch_task_and_monitor]
 tool_node = ToolNode(tools)
@@ -44,5 +46,7 @@ graph.add_conditional_edges("agent", should_continue, ["tools", END])
 graph.add_edge("tools", "agent")
 app = graph.compile()
 
+print("=== 测试1：启动新实验 ===")
+# exp_id = run_or_resume()  # 输出实验ID，如 exp_a1b2c3
 
 # create_react_graph = graph.create_react_graph()
