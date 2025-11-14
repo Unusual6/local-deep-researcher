@@ -103,8 +103,8 @@ def get_tools(llm):
         """
         查询可执行指定协议的Edge Server。
         """
-        broker = "mqtt.lab.local"
-        topic = "/lab/registry/status"
+        broker = "101.52.216.165"
+        topic = "demo/topic"
         edges = []
 
         def on_message(client, userdata, msg):

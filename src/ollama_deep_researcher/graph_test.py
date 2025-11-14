@@ -265,7 +265,7 @@ def chat_node(state: SummaryState, config: RunnableConfig):
             "next_tool": None,
         }
 
-def tools_node(state: SummaryState, config):
+def tools_node(state: SummaryState, config:RunnableConfig):
     configurable = Configuration.from_runnable_config(config)
     llm = get_llm(configurable)
     tools = {t.name: t for t in get_tools(llm)}  # 转成字典方便查找
@@ -328,3 +328,5 @@ builder.add_conditional_edges("chat", route_from_chat)
 builder.add_edge("tools", "chat")
 # builder.add_edge("chat", END)
 graph = builder.compile()
+
+create_react_graph = StateGraph.create_react_graph()

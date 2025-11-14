@@ -1,0 +1,36 @@
+<?xdl version="1.0.0" ?>
+<XDL>
+  <Synthesis>
+    <Hardware>
+      <Component id="reactor" type="autoclave_reactor" />
+      <Component id="stirrer" type="magnetic_stirrer" />
+      <Component id="oven" type="high_temp_oven" />
+      <Component id="centrifuge" type="benchtop_centrifuge" />
+    </Hardware>
+    <Reagents>
+      <Reagent name="ZrOCl2" id="zirconium_chloride" />
+      <Reagent name="NH3_H2O" id="ammonia_solution" />
+      <Reagent name="Ethanol" id="absolute_ethanol" />
+      <Reagent name="DI_Water" id="deionized_water" />
+      <Reagent name="Citric_Acid" id="citric_acid" />
+    </Reagents>
+    <Procedure>
+            <Add reagent="ZrOCl2" vessel="reactor" volume="50 mL" />
+      <Add reagent="DI_Water" vessel="reactor" volume="150 mL" />
+      <Stir vessel="reactor" speed="300" duration="30 min" />
+      <Add reagent="NH3_H2O" vessel="reactor" volume="20 mL" />
+      <Heat vessel="reactor" temperature="80°C" duration="2h" />
+      <Add reagent="Citric_Acid" vessel="reactor" volume="5 mL" />
+      <Stir vessel="reactor" speed="400" duration="1h" />
+      <Centrifuge vessel="reactor" speed="4000 rpm" duration="15 min" />
+      <Wash vessel="centrifuge_tube" solvent="Ethanol" volume="30 mL" />
+      <Dry vessel="oven" temperature="120°C" duration="1h" />
+    </Procedure>
+    <Metadata>
+      <Experiment target="Zirconia" sample_id="S123" type="SYNTHESIS" generated_time="2025-11-14 09:57:46" />
+      <Parameters>
+                <Parameter name="dilution_factor" value="1" />
+      </Parameters>
+    </Metadata>
+  </Synthesis>
+</XDL>

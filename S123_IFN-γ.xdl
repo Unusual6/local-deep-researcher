@@ -1,0 +1,43 @@
+<?xdl version="1.0.0" ?>
+<XDL>
+  <Synthesis>
+    <Hardware>
+      <Component id="washer" type="plate_washer" />
+      <Component id="reader" type="plate_reader" />
+      <Component id="incubator" type="thermostatic_incubator" />
+    </Hardware>
+    <Reagents>
+      <Reagent name="PBST" id="PBST" />
+      <Reagent name="Capture_Anti_IFNγ" id="Capture_Ab" />
+      <Reagent name="HRP_Anti_IFNγ" id="Detection_Ab" />
+      <Reagent name="TMB" id="TMB" />
+      <Reagent name="Stop_Solution" id="Stop" />
+      <Reagent name="BSA" id="BSA" />
+      <Reagent name="IFNγ_Standard" id="Standard" />
+    </Reagents>
+    <Procedure>
+      <Add reagent="Capture_Ab" vessel="96-well-plate" volume="100 uL" />
+      <Incubate vessel="96-well-plate" temperature="4 °C" time="16 h" />
+      <Wash vessel="96-well-plate" reagent="PBST" cycles="3" volume="200 uL" />
+      <Add reagent="BSA" vessel="96-well-plate" volume="200 uL" />
+      <Wash vessel="96-well-plate" reagent="PBST" cycles="3" volume="200 uL" />
+      <Add reagent="Sample" vessel="96-well-plate" volume="100 uL" dilution_factor="5" />
+      <Incubate vessel="96-well-plate" temperature="37 °C" time="2h" />
+      <Wash vessel="96-well-plate" reagent="PBST" cycles="3" volume="200 uL" />
+      <Add reagent="Detection_Ab" vessel="96-well-plate" volume="100 uL" />
+      <Incubate vessel="96-well-plate" temperature="37 °C" time="2h" />
+      <Wash vessel="96-well-plate" reagent="PBST" cycles="5" volume="200 uL" />
+      <Add reagent="TMB" vessel="96-well-plate" volume="50 uL" />
+      <Incubate vessel="96-well-plate" temperature="37 °C" time="15 min" protect_from_light="true" />
+      <Add reagent="Stop_Solution" vessel="96-well-plate" volume="50 uL" />
+      <Read vessel="96-well-plate" wavelength="450 nm" reference_wavelength="630 nm" />
+    </Procedure>
+    <Metadata>
+      <Experiment target="IFN-γ" sample_id="S123" type="ELISA" generated_time="2025-11-13 17:21:27" />
+      <Parameters>
+        <Parameter name="dilution_factor" value="5" />
+        <Parameter name="incubate_time" value="2h" />
+      </Parameters>
+    </Metadata>
+  </Synthesis>
+</XDL>
