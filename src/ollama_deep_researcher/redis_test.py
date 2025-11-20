@@ -107,7 +107,7 @@ def run_experiment(state: ExperimentState) -> ExperimentState:
         state.progress = (i + 1) * 33
         print(f"[执行实验] 进度：{state.progress}%")
     state.is_success = True
-    state.result = "实验成功：数据采集完成"
+    state.result = "data collection is done!"
     print(f"[执行实验] {state.experiment_id} 完成！")
     return state
 

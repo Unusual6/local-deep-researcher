@@ -6,8 +6,8 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain_core.messages import AIMessage
 from ollama_deep_researcher.tools import llm_calculator_tool,generate_xdl_protocol
 from ollama_deep_researcher.tools import query_edge_server,dispatch_task_and_monitor
+from langgraph.checkpoint.sqlite import SqliteSaver
 
-from ollama_deep_researcher.redis_test import run_or_resume
 
 tools = [llm_calculator_tool,generate_xdl_protocol,query_edge_server,dispatch_task_and_monitor]
 tool_node = ToolNode(tools)
@@ -38,6 +38,10 @@ def call_model(state: MessagesState):
 
     return {"messages": [response]}
 
+# checkpointer = SqliteSaver.from_conn_string(
+#     "file:./langgraph_chat.db?mode=rwc"
+# )
+
 graph = StateGraph(MessagesState)
 graph.add_node("agent", call_model)
 graph.add_node("tools", tool_node)
@@ -45,8 +49,13 @@ graph.add_edge(START, "agent")
 graph.add_conditional_edges("agent", should_continue, ["tools", END])
 graph.add_edge("tools", "agent")
 app = graph.compile()
+# app = graph.compile(checkpointer=checkpointer)
 
-print("=== 测试1：启动新实验 ===")
-# exp_id = run_or_resume()  # 输出实验ID，如 exp_a1b2c3
 
-# create_react_graph = graph.create_react_graph()
+if __name__ == "__main__":
+    res = app.invoke(
+        {"messages": [{"role": "user", "content": "hello"}]},
+        thread_id="thread-1"
+    )
+    print(res)
+    print(f"SQLite DB 写入路径：./langgraph_chat.db")

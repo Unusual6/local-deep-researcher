@@ -16,9 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 # 帮我检测样品S321的PD-L1浓度,输出xdl.只解析实验需求，输出结果
-# 我要做合成磷酸铁锂的实验，先解析实验需求
-# 计算421*82
+# 我要做合成磷酸铁锂的实验，输出xdl,先解析实验需求
+# 查询可执行指定Add_Protocol的空闲 Edge Server
+# 计算421*822
 # 你会干什么
+# langgraph Studio
 
 def init_global_llm():
     """初始化全局 LLM 实例（从环境变量读取配置，避免硬编码）"""
@@ -65,39 +67,6 @@ def weather_tool(location: str) -> str:
     """A simple weather tool that returns a mock weather report for a given location."""
     # In a real implementation, this would call a weather API.
     return f"The current weather in {location} is sunny with a temperature of 25°C."
-
-
-# @tool
-# def parse_experiment_description(user_input: str) -> Dict[str, Any]:
-#     """
-#     解析自然语言实验需求，输出结构化实验信息。
-#     """
-#     prompt = f"""
-#     你是实验调度助手，请从以下描述中提取实验信息：
-#     - 实验类型(type)
-#     - 目标物(target)
-#     - 样品编号(sample_id)
-#     - 任何其他参数(parameters)
-#     输出为JSON，内容为英文,参考输入输出格式如下,严格遵循格式。根据常识尽可能补全内容，若实在没有的字段给出空： 
-#     示例1：用户输入"我要做ELISA实验，目标物是TNF-α，样品编号T2024，稀释倍数10，孵育时间1.5h"
-#     输出：
-#    {{
-#      "type": "ELISA",
-#      "target": "TNF-α",
-#      "sample_id": "T2024",
-#      "devices": plate_reader,
-#      "parameters": {{
-#        "dilution_factor": 10,
-#        "incubate_time": "1.5h"
-#      }}
-#    }}
-#     用户输入: {user_input}
-#     """
-#     response = llm.predict(prompt)
-#     try:
-#         return json.loads(response)
-#     except Exception:
-#         return {"type": "ELISA", "target": "IFN-γ", "sample_id": "unknown"}
 
 
 # XDL基础骨架模板
@@ -196,12 +165,12 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     解析自然语言实验需求，生成完整的XDL协议（自动补全硬件、试剂、步骤）
     """
     prompt = f"""
-    你是实验调度助手，请从以下描述中提取实验信息：
+    你是实验调度助手，请从以下描述中提取实验信息,输出为JSON，内容为英文
     - 实验类型(type)
     - 目标物(target)
     - 样品编号(sample_id)
     - 任何其他参数(parameters)
-    输出为JSON，内容为英文,参考输入输出格式如下,严格遵循格式。根据常识尽可能补全内容，若实在没有的字段给出空： 
+    参考输入输出格式如下,严格遵循格式。根据常识尽可能补全内容，若实在没有的字段给出空： 
     示例1：用户输入"我要做ELISA实验，目标物是TNF-α，样品编号T2024，稀释倍数10，孵育时间1.5h"
     输出：
      {{
@@ -216,10 +185,10 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
    }}
     用户输入: {user_input}
     """
-    response = llm.predict(prompt)
+    response = llm.invoke(prompt)
     
-    exp_info = json.loads(response)
-
+    exp_info = json.loads(response.content)
+    print(exp_info)
 
     # 1. 基础参数补全与校验
     exp_type = exp_info.get("type", "").strip().upper()
@@ -227,8 +196,9 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     sample_id = exp_info.get("sample_id", f"Sample_{int(time.time())}")
     parameters = exp_info.get("parameters", {})
 
-    if not exp_type or not target:
-        raise ValueError("必须包含 type（实验类型）和 target（目标分子）")
+    # if not exp_type or not target:
+    #     print("exp_type, target missing",exp_type,target)
+    #     raise ValueError("必须包含 type（实验类型）和 target（目标分子）")
 
     # 提取关键参数（默认值兜底）
     params_dilution = parameters.get("dilution_factor", 1)
@@ -251,11 +221,11 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     llm_data = safe_parse_llm_output(llm_output)
 
     # 替换步骤中的参数占位符（确保参数生效）
-    llm_data["steps"] = [
-        step.replace("{params_dilution}", str(params_dilution))
-            .replace("{params_incubate}", str(params_incubate))
-        for step in llm_data["steps"]
-    ]
+    # llm_data["steps"] = [
+    #     step.replace("{params_dilution}", str(params_dilution))
+    #         .replace("{params_incubate}", str(params_incubate))
+    #     for step in llm_data["steps"]
+    # ]
 
     # 3. 生成XDL各部分内容（容错处理：确保字段存在）
     llm_data = {
