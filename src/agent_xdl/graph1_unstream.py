@@ -1,0 +1,98 @@
+import uuid,json
+from langgraph.prebuilt import ToolNode
+from langchain_core.tools import tool
+from langchain_openai import ChatOpenAI
+from langgraph.graph import StateGraph, MessagesState, START, END
+from langchain_core.messages import AIMessage,ToolMessage
+from src.agent_xdl.tools import llm_calculator_tool,generate_xdl_protocol
+# from ollama_deep_researcher.tools import query_edge_server,dispatch_task_and_monitor
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+
+tools = [llm_calculator_tool,generate_xdl_protocol]
+tool_node = ToolNode(tools)
+
+def should_continue(state: MessagesState):
+    messages = state["messages"]
+    last_message = messages[-1]
+    if getattr(last_message, "tool_calls", None):
+        return "tools"
+    return END
+
+model_with_tools = ChatOpenAI(
+    model="Qwen3-32B-FP8",
+    api_key="1756891290237NvNud1IzoEnGtlNncoB1uWl",
+    openai_api_base="http://120.204.73.73:8033/api/ai-gateway/v1",
+    temperature=0.6,
+).bind_tools(tools=tools, tool_choice="auto")
+
+def call_model(state: MessagesState):
+    messages = state["messages"]
+    response = model_with_tools.invoke(messages)
+
+    # ✅ 自动补上缺失的 tool_call_id
+    if isinstance(response, AIMessage) and getattr(response, "tool_calls", None):
+        for tool_call in response.tool_calls:
+            if not tool_call.get("id"):
+                tool_call["id"] = f"call_{uuid.uuid4().hex[:8]}"
+
+
+    if isinstance(response, AIMessage) and isinstance(messages[-1], ToolMessage):
+        content_dict  = json.loads(messages[-1].content)
+        xdl_protocol = content_dict['xdl_protocol'] 
+        first = uuid.uuid4().hex[:8]
+        second = uuid.uuid4().hex[:8]
+        state["messages"].append(AIMessage(content=json.dumps({
+                "blocks":[ {
+                    "title": "",
+                    "block_id": first,
+                    "content": {
+                        "text": "标题名称",
+                        "status": "running代表运行中，done代表此节点结束"
+                    },
+                    "content_type": "foldable_title", 
+                    "position_type": "left",
+                    "stream_mode": "updates",
+                    "parent": "",
+                    "right": ""
+                },
+                {
+                    "title": "",
+                    "block_id": second,
+                    "content": {
+                        "abstract": "",
+                        "text": xdl_protocol,
+                        "tag": "SIMPLE"
+                    },
+                    "content_type": "foldable_markdown",
+                    "position_type": "left",
+                    "stream_mode": "updates",
+                    "parent": first,
+                    "right": ""
+                }],
+                "status":'done'
+            })))
+        return state
+    
+    return {"messages": [response]}
+# checkpointer = SqliteSaver.from_conn_string(
+#     "file:./langgraph_chat.db?mode=rwc"
+# )
+
+graph = StateGraph(MessagesState)
+graph.add_node("agent", call_model)
+graph.add_node("tools", tool_node)
+graph.add_edge(START, "agent")
+graph.add_conditional_edges("agent", should_continue, ["tools", END])
+graph.add_edge("tools", "agent")
+app = graph.compile()
+# app = graph.compile(checkpointer=checkpointer)
+
+
+if __name__ == "__main__":
+    res = app.invoke(
+        {"messages": [{"role": "human", "content": "移动液体p200加样器从试剂瓶A中吸取100uL液体到96孔板的A1孔中,输出xdl."}]}
+    )
+    print("=="*40)
+    print(res)
+    # print(f"SQLite DB 写入路径：./langgraph_chat.db")

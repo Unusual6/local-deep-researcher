@@ -36,7 +36,9 @@ def call_model(state: MessagesState):
             if not tool_call.get("id"):
                 tool_call["id"] = f"call_{uuid.uuid4().hex[:8]}"
 
-    return {"messages": [response]}
+    # return {"messages": [response]}
+    state['messages'].append(response)
+    return state
 
 # checkpointer = SqliteSaver.from_conn_string(
 #     "file:./langgraph_chat.db?mode=rwc"
