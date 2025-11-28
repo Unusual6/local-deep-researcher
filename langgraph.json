@@ -1,10 +1,11 @@
 {
     "dockerfile_lines": [],
     "graphs": {
-      "ollama_deep_researcher": "./src/ollama_deep_researcher/graph1.py:graph",
-      "agent_xdl": "./src/agent_xdl/graph1_unstream.py:graph"
-    },
-    "python_version": "3.11",
+      "ollama_deep_researcher": "./src/ollama_deep_researcher/graph1.py:graph" ,
+    
+      "demo":"./src/demo/langgraph_server.py:graph"
+     },
+      "python_version": "3.11",
     "env": "./.env",
     "dependencies": [
       "."

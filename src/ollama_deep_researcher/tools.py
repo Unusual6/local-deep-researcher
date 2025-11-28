@@ -515,7 +515,7 @@ def dispatch_task_and_monitor(server_id: str, task_details: dict) -> dict:
         "task_details": task_details
     }
 
-s = '合成磷酸铁锂的实验，输出xdl'
-res = generate_xdl_protocol.invoke(s)
-print("====="*20)
-print(res['xdl_protocol'])
+# s = '合成磷酸铁锂的实验，输出xdl'
+# res = generate_xdl_protocol.invoke(s)
+# print("====="*20)
+# print(res['xdl_protocol'])
