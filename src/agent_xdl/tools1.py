@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 # 你会干什么
 # langgraph Studio
 # 移动液体p200加样器从试剂瓶A中吸取100uL液体到96孔板的A1孔中，生成xdl
+# 合成氧化锆，生成xdl，步骤中仅输出add动作
+# 合成氧化锆的混合前驱体阶段，生成实验步骤中的核心动作以混合为主的xdl
+
+
 
 def init_global_llm():
     """初始化全局 LLM 实例（从环境变量读取配置，避免硬编码）"""
@@ -141,80 +145,6 @@ import logging
 from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
-
-# def safe_parse_llm_output(llm_output):
-#     """
-#     解析 LLM 输出中的 JSON。
-#     适配 generate_xdl_protocol 的固定输出结构：
-#         { "hardware": [...], "reagents": [...], "steps": [...] }
-
-#     支持：
-#     - 前后多余文本
-#     - 代码块 ```json ... ```
-#     - 未补齐的括号
-#     """
-
-#     import json, re
-
-#     # 1) 提取内容
-#     raw = getattr(llm_output, "content", llm_output)
-#     if not isinstance(raw, str):
-#         raw = str(raw)
-#     raw = raw.strip()
-#     if raw == "":
-#         raise json.JSONDecodeError("LLM 输出为空", raw, 0)
-
-#     # 去掉```json``` ```等代码块包裹
-#     raw = re.sub(r"^```[\s\S]*?```$", lambda m: m.group(0).strip("`"), raw)
-
-#     # 2) 尝试直接解析（可能本身就是干净 JSON）
-#     try:
-#         return json.loads(raw)
-#     except:
-#         pass
-
-#     # 3) 提取第一个 JSON object 或 array （最常见情况）
-#     m = re.search(r'(\{[\s\S]*?\}|\[[\s\S]*?\])', raw, flags=re.DOTALL)
-#     if m:
-#         candidate = m.group(1).strip()
-#     else:
-#         candidate = raw  # 如果没找到，只能硬解析
-
-#     # 4) 自动补齐括号 —— 避免 "Expecting value"、"char 0"
-#     def fix_brackets(s):
-#         # {} 补齐
-#         diff = s.count("{") - s.count("}")
-#         if diff > 0:
-#             s += "}" * diff
-
-#         # [] 补齐
-#         diff = s.count("[") - s.count("]")
-#         if diff > 0:
-#             s += "]" * diff
-
-#         return s
-
-#     candidate = fix_brackets(candidate)
-
-#     # 5) unicode 解码（只做一次）避免破坏标签/XML
-#     try:
-#         decoded = candidate.encode().decode("unicode_escape")
-#         # 确保不会把内容完全破坏
-#         if len(decoded) >= len(candidate) / 2:
-#             candidate = decoded
-#     except:
-#         pass
-
-#     # 6) 最终解析
-#     try:
-#         print("LLM 解析候选 JSON=============：", candidate)
-#         return json.loads(candidate)
-#     except Exception as e:
-#         raise json.JSONDecodeError(
-#             f"safe_parse_llm_output: JSON parse failed: {e}",
-#             candidate,
-#             0
-#         )
 
 
 @tool
