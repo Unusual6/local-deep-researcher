@@ -1,17 +1,17 @@
-import uuid
+import uuid,os
 from langgraph.prebuilt import ToolNode
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain_core.messages import AIMessage
 # from ollama_deep_researcher.tools import llm_calculator_tool,generate_xdl_protocol
-from ollama_deep_researcher.tools import query_edge_server,dispatch_task_and_monitor
-from src.agent_xdl.tools1 import llm_calculator_tool,generate_xdl_protocol
+from src.ollama_deep_researcher.tools import query_edge_server,dispatch_task_and_monitor
+from src.agent_xdl.tools1 import llm_calculator_tool,generate_xdl_protocol,weather_tool
 # from langgraph.checkpoint.sqlite import SqliteSaver
 
 # export PYTHONPATH=/home/pfjial/local-deep-researcher-main
 
-tools = [llm_calculator_tool,generate_xdl_protocol,query_edge_server,dispatch_task_and_monitor]
+tools = [llm_calculator_tool,generate_xdl_protocol,query_edge_server,dispatch_task_and_monitor,weather_tool]
 tool_node = ToolNode(tools)
 
 def should_continue(state: MessagesState):
@@ -20,13 +20,13 @@ def should_continue(state: MessagesState):
     if getattr(last_message, "tool_calls", None):
         return "tools"
     return END
-
+# 1764728646727FBys1MQS2i7TX48XcRbrLxg
 model_with_tools = ChatOpenAI(
-    model="GPT-oss-20b",
-    api_key="1756891290237NvNud1IzoEnGtlNncoB1uWl",
-    openai_api_base="http://120.204.73.73:8033/api/ai-gateway/v1",
-    temperature=0.6,
-).bind_tools(tools=tools, tool_choice="auto")
+        model=os.getenv("XDL_LLM_MODEL"),
+        api_key=os.getenv("XDL_LLM_API_KEY"),
+        openai_api_base=os.getenv("XDL_LLM_API_BASE"),
+        temperature=0.1
+    ).bind_tools(tools=tools)
 
 def call_model(state: MessagesState):
     messages = state["messages"]
@@ -57,9 +57,15 @@ app = graph.compile()
 
 
 if __name__ == "__main__":
-    res = app.invoke(
-        {"messages": [{"role": "user", "content": "计算下897*678"}]},
-        thread_id="thread-1"
-    )
-    print(res)
+    # res = app.invoke(
+    #     {"messages": [{"role": "user", "content": "计算下897*678"}]},
+    #     thread_id="thread-1"
+    # )
+    # print(res)
+    print("===="*20)
+    for chunk in app.stream(
+            {"messages": [{"role": "user", "content": "北京的天气怎么样"}]},
+            stream_mode="updates"):
+        print(chunk)
+
     # print(f"SQLite DB 写入路径：./langgraph_chat.db")
