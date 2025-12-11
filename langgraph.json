@@ -4,7 +4,7 @@
       "ollama_deep_researcher": "./src/ollama_deep_researcher/graph1.py:graph" ,
       "multi-agent":"./src/mutil_agents/multi_agent_demo.py:main_app",
       "bio-agent":"./src/mutil_agents/bio_agent.py:bio_agent",
-      "demo":"./src/demo/langgraph_server.py:graph"
+      "unstream":"./src/agent_xdl/graph1_unstream.py:graph"
      },
       "python_version": "3.11",
     "env": "./.env",

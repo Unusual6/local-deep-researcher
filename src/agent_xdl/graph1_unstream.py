@@ -1,4 +1,4 @@
-import uuid,json
+import uuid,json,os
 from langgraph.prebuilt import ToolNode
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
@@ -6,7 +6,7 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain_core.messages import AIMessage,ToolMessage
 from src.agent_xdl.tools import llm_calculator_tool,generate_xdl_protocol
 # from ollama_deep_researcher.tools import query_edge_server,dispatch_task_and_monitor
-from langgraph.checkpoint.sqlite import SqliteSaver
+# from langgraph.checkpoint.sqlite import SqliteSaver
 
 
 tools = [llm_calculator_tool,generate_xdl_protocol]
@@ -20,11 +20,11 @@ def should_continue(state: MessagesState):
     return END
 
 model_with_tools = ChatOpenAI(
-    model="Qwen3-32B-FP8",
-    api_key="1756891290237NvNud1IzoEnGtlNncoB1uWl",
-    openai_api_base="http://120.204.73.73:8033/api/ai-gateway/v1",
-    temperature=0.6,
-).bind_tools(tools=tools, tool_choice="auto")
+        model=os.getenv("XDL_LLM_MODEL"),
+        api_key=os.getenv("XDL_LLM_API_KEY"),
+        openai_api_base=os.getenv("XDL_LLM_API_BASE"),
+        temperature=0.1
+    ).bind_tools(tools=tools)
 
 def call_model(state: MessagesState):
     messages = state["messages"]
@@ -32,6 +32,7 @@ def call_model(state: MessagesState):
 
     # ✅ 自动补上缺失的 tool_call_id
     if isinstance(response, AIMessage) and getattr(response, "tool_calls", None):
+        print("+++++++++++++++++++ ")
         for tool_call in response.tool_calls:
             if not tool_call.get("id"):
                 tool_call["id"] = f"call_{uuid.uuid4().hex[:8]}"
@@ -40,6 +41,8 @@ def call_model(state: MessagesState):
     if isinstance(response, AIMessage) and isinstance(messages[-1], ToolMessage):
         content_dict  = json.loads(messages[-1].content)
         xdl_protocol = content_dict['xdl_protocol'] 
+        print("==="*20)
+        print(xdl_protocol)
         first = uuid.uuid4().hex[:8]
         second = uuid.uuid4().hex[:8]
         state["messages"].append(AIMessage(content=json.dumps({
@@ -85,14 +88,14 @@ graph.add_node("tools", tool_node)
 graph.add_edge(START, "agent")
 graph.add_conditional_edges("agent", should_continue, ["tools", END])
 graph.add_edge("tools", "agent")
-app = graph.compile()
+graph = graph.compile()
 # app = graph.compile(checkpointer=checkpointer)
 
 
 if __name__ == "__main__":
-    res = app.invoke(
-        {"messages": [{"role": "human", "content": "移动液体p200加样器从试剂瓶A中吸取100uL液体到96孔板的A1孔中,输出xdl."}]}
+    res = graph.invoke(
+        {"messages": [{"role": "human", "content": "合成氧化锆的混合前驱体阶段，生成实验步骤中的核心动作以混合为主的xdl"}]}
     )
     print("=="*40)
-    print(res)
+    # print(res)
     # print(f"SQLite DB 写入路径：./langgraph_chat.db")

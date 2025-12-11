@@ -1,4 +1,4 @@
-import uuid
+import uuid,os
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, MessagesState, START, END
@@ -8,19 +8,12 @@ from IPython.display import Image,display
 # ---------------------------------------------------------------------
 # ------------------------  LLM and prompt for fields ----------------------------
 # ---------------------------------------------------------------------
-llm_chem = ChatOpenAI(
-    model="GPT-oss-20b",
-    api_key="1756891290237NvNud1IzoEnGtlNncoB1uWl",
-    openai_api_base="http://120.204.73.73:8033/api/ai-gateway/v1",
-    # temperature=0.6,
-)
-
-llm_bio = ChatOpenAI(
-    model="GPT-oss-20b",
-    api_key="1756891290237NvNud1IzoEnGtlNncoB1uWl",
-    openai_api_base="http://120.204.73.73:8033/api/ai-gateway/v1",
-    # temperature=0.6,
-)
+llm = ChatOpenAI(
+        model=os.getenv("XDL_LLM_MODEL"),
+        api_key=os.getenv("XDL_LLM_API_KEY"),
+        openai_api_base=os.getenv("XDL_LLM_API_BASE"),
+        temperature=0.1
+    )
 
 prompt = f"""You are an expert laboratory assistant. You can help design and execute experiments in the fields of Chemistry and Biology. Use the available tools to perform tasks as needed.
 Available tools:
@@ -63,7 +56,7 @@ chem_tools_node = ToolNode([chem_tool1])
 
 
 def cytokine_agent(state: MessagesState):
-    llm_bio_cytokine_agent = llm_bio.bind_tools(tools=cytokine_tools)
+    llm_bio_cytokine_agent = llm.bind_tools(tools=cytokine_tools)
     resp = llm_bio_cytokine_agent.invoke(state["messages"])
     # 自动补 tool_call_id
     if isinstance(resp, AIMessage) and resp.tool_calls:
@@ -90,7 +83,7 @@ cytokine_graph = cyto_graph.compile()
 # ---------------------------------------------------------------------
 
 def elisa_agent(state: MessagesState):
-    resp = llm_bio.invoke(state["messages"])
+    resp = llm.invoke(state["messages"])
     state["messages"].append(resp)
     return state
 
@@ -125,13 +118,24 @@ def bio_should_continue(state: MessagesState):
 
 bio_graph = StateGraph(MessagesState)
 bio_graph.add_node("agent", bio_agent_node)
-# bio_graph.add_node("cytokine", cytokine_graph)
-# bio_graph.add_node("elisa", elisa_graph)
-bio_graph.add_edge(START, "agent")
+bio_graph.add_node("cytokine", cytokine_graph)  # 子图作为节点
+bio_graph.add_node("elisa", elisa_graph)        # 子图作为节点
 
-# bio_graph.add_conditional_edges("agent", route_bio_subgraph)
-bio_graph.add_edge("agent",END)
+# 流程路由
+bio_graph.set_entry_point("agent")  # 入口：领域智能体
+bio_graph.add_conditional_edges(
+    source="agent",
+    path=route_bio_subgraph,
+    path_map={
+        "cytokine": "cytokine",
+        "elisa": "elisa",
+        END: END
+    }
+)
+bio_graph.add_edge("cytokine", END)
+bio_graph.add_edge("elisa", END)
 bio_agent = bio_graph.compile()
+
 
 # ---------------------------------------------------------------------
 # ------------------------  领域智能体：Chem（Level 2） ---------------

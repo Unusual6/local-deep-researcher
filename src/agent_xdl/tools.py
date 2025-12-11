@@ -9,26 +9,34 @@ from typing import Dict, Any, List, Optional
 from langchain_core.tools import tool
 import logging
 from pydantic import Field
+from typing import Literal
+from src.agent_xdl.prompt import LLM_PROMPT_TEMPLATE, XDL_SKELETON,XDL_prompt
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-# 帮我检测样品S321的PD-L1浓度,输出xdl.只解析实验需求，输出结果
-# 我要做合成磷酸铁锂的实验，输出xdl,先解析实验需求
+# 检测样品S3的白蛋白浓度,输出xdl.只解析实验需求，输出结果
+# 合成磷酸铁锂的实验，输出xdl,先解析实验需求
+# 合成氧化锆，输出xdl，仅允许使用Add步骤
 # 查询可执行指定Add_Protocol的空闲 Edge Server
 # 计算421*822
 # 你会干什么
 # langgraph Studio
 # 移动液体p200加样器从试剂瓶A中吸取100uL液体到96孔板的A1孔中，生成xdl
+# 合成氧化锆，生成xdl，步骤中仅输出add动作
+# 合成氧化锆的混合前驱体阶段，生成实验步骤中的核心动作以混合为主的xdl
+# elisa检测样品S3的白蛋白浓度,振荡测量其速率
+
+
 
 def init_global_llm():
     """初始化全局 LLM 实例（从环境变量读取配置，避免硬编码）"""
     return ChatOpenAI(
-        model=os.getenv("LLM_MODEL", "GPT-oss-20b"),
-        api_key=os.getenv("LLM_API_KEY", "1756891290237NvNud1IzoEnGtlNncoB1uWl"),
-        openai_api_base=os.getenv("LLM_API_BASE", "http://120.204.73.73:8033/api/ai-gateway/v1"),
+        model=os.getenv("XDL_LLM_MODEL"),
+        api_key=os.getenv("XDL_LLM_API_KEY"),
+        openai_api_base=os.getenv("XDL_LLM_API_BASE"),
         temperature=0.1
     )
 
@@ -70,52 +78,6 @@ def weather_tool(location: str) -> str:
     return f"The current weather in {location} is sunny with a temperature of 25°C."
 
 
-# XDL基础骨架模板
-XDL_SKELETON = """<?xdl version="1.0.0" ?>
-<XDL>
-  <Synthesis>
-    <Hardware>
-      {{hardware}}
-    </Hardware>
-    <Reagents>
-      {{reagents}}
-    </Reagents>
-    <Procedure>
-      {{procedure}}
-    </Procedure>
-    <Metadata>
-      {{metadata}}
-    </Metadata>
-  </Synthesis>
-</XDL>"""
-
-# 优化后的LLM提示词（强制纯JSON输出，增加格式约束）
-LLM_PROMPT_TEMPLATE = """
-你是专业生物实验工程师，仅根据以下信息生成{exp_type}实验的硬件、试剂、步骤，严格按照指定JSON格式输出，不要任何额外文字、注释、换行！
-
-实验信息：
-- 类型：{exp_type}
-- 目标：{target}
-- 样本ID：{sample_id}
-- 参数：{parameters}
-
-输出要求（JSON字段必须包含hardware、reagents、steps，格式严格如下）：
-{{
-"hardware": ["washer:plate_washer", "reader:plate_reader", "incubator:thermostatic_incubator"],
-"reagents": ["PBST:PBST", "Capture_Anti_IFNγ:Capture_Ab", "HRP_Anti_IFNγ:Detection_Ab", "TMB:TMB", "Stop_Solution:Stop", "BSA:BSA", "IFNγ_Standard:Standard"],
-"steps": [<Add reagent="a" vessel="96-well-plate" volume="200 uL" />'，
-          <Add reagent="b" vessel="reactor" volume="200 uL" />'
-          <Stir vessel="reactor" speed="40" />'
-            ]
-}}
-
-注意：
-1. steps必须包含实验核心步骤，参数可用到{params_dilution}和{params_incubate}
-2. 不要修改JSON结构，不要添加任何额外内容，替换试剂/步骤中的具体名称,
-3. 仅仅参考JSON结构，不要照搬格式的内容
-4. steps中的结构先写出动作，再给出参数，中间隔开
-5. 输出完直接结束，不要解释
-"""
 
 import json
 import re
@@ -124,191 +86,49 @@ from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
-def safe_parse_llm_output(llm_output: Any) -> Dict[str, Any]:
-    """
-    Robust parser for LLM outputs that are meant to be JSON but may contain
-    embedded XML/self-closing tags with unescaped quotes, double-quoting, or
-    various backslash-escape artifacts.
-
-    Returns a python dict if successful, otherwise raises JSONDecodeError with
-    helpful debug printouts.
-    """
-    # 1) get raw text
-    if hasattr(llm_output, "content"):
-        raw = llm_output.content
-    else:
-        raw = llm_output if isinstance(llm_output, str) else str(llm_output)
-
-    raw = raw.strip()
-
-    # helper: try json loads and return if ok
-    def try_load(s: str):
-        try:
-            return json.loads(s)
-        except Exception as e:
-            raise
-
-    # small utility: escape unescaped quotes inside a tag <...>
-    def escape_unescaped_quotes_in_tag(tag: str) -> str:
-        # tag looks like <...> or <.../>
-        inner = tag[1:-1]
-        # replace any " that is not already escaped (not preceded by backslash) with \"
-        inner_escaped = re.sub(r'(?<!\\)"', r'\\"', inner)
-        return f"<{inner_escaped}>"
-
-    # utility: wrap a tag in quotes and ensure internal quotes are escaped
-    def wrap_tag_as_json_string(tag: str) -> str:
-        # tag may be "<.../>" without quotes; we want "\"<.../>\""
-        escaped_tag = escape_unescaped_quotes_in_tag(tag)
-        # now ensure backslashes are single (we'll not unescape here)
-        return f'"{escaped_tag}"'
-
-    # Attempt sequence of progressively more aggressive fixes
-    attempts = []
-
-    # attempt 0: raw attempt
-    attempts.append(("raw", raw))
-
-    # attempt 1: if there are stray leading/trailing content that are not JSON,
-    # try to extract first {...} block
-    m = re.search(r'\{.*\}', raw, flags=re.DOTALL)
-    if m:
-        attempts.append(("extract_braces", m.group(0)))
-
-    # attempt 2: unicode escape decode (handles double-escaped sequences like \\\" -> \")
-    try:
-        decoded = raw.encode("utf-8").decode("unicode_escape")
-        if decoded != raw:
-            attempts.append(("unicode_escape_decoded", decoded))
-    except Exception:
-        pass
-
-    # attempt 3: reduce multiple backslashes (e.g. \\\\" -> \\" ) iteratively
-    s = raw
-    for i in range(3):
-        s2 = re.sub(r'\\\\{2,}', lambda m: '\\\\' * (len(m.group(0)) // 2), s)
-        if s2 != s:
-            attempts.append((f"reduce_backslashes_{i}", s2))
-            s = s2
-
-    # attempt 4: handle patterns of double-double-quote around tags, and wrap unquoted tags
-    def normalize_tags(s: str) -> str:
-        # 4.1 remove accidental double-double quotes: ""<tag/>"" -> "<tag/>"
-        s = re.sub(r'""\s*(<[^>]+/?>)\s*""', r'"\1"', s)
-
-        # 4.2 fix occurrences like '"<tag/>"",""<tag/>"' -> '"<tag/>","<tag/>"'
-        s = s.replace('",""', '","')
-
-        # 4.3 wrap unquoted tags <.../> -> "<.../>"
-        # But only wrap when tag is not already quoted (negative lookbehind/lookahead)
-        s = re.sub(
-            r'(?<!")(<[^>"\]]+?/?>)(?!")',
-            lambda m: wrap_tag_as_json_string(m.group(1)),
-            s
-        )
-
-        # 4.4 ensure tags that ended up with escaped quotes have their inner quotes escaped
-        # (already handled by wrap_tag_as_json_string / escape_unescaped_quotes_in_tag)
-
-        # 4.5 normalize awkward sequences like '", "<' -> '"," <' -> keep as '"," <' is okay JSON if inner has quotes
-        s = re.sub(r'",\s*"<', '", "<', s)
-
-        return s
-
-    attempts.append(("normalize_tags_initial", normalize_tags(raw)))
-
-    # attempt 5: try to progressively apply normalization to the decoded attempts too
-    for name, candidate in list(attempts):
-        try:
-            # quick direct load
-            return json.loads(candidate)
-        except Exception:
-            pass
-
-    # Now try normalized variants in a safer loop
-    candidates_tried = set()
-    for name, candidate in attempts:
-        # 1) normalized once
-        n1 = normalize_tags(candidate)
-        if n1 not in candidates_tried:
-            candidates_tried.add(n1)
-            try:
-                return json.loads(n1)
-            except Exception:
-                pass
-        # 2) escape internal quotes inside tags more aggressively
-        # find tags and replace them with safe strings
-        def replacer(m):
-            tag = m.group(0)
-            inner = tag[1:-1]
-            inner_escaped = re.sub(r'(?<!\\)"', r'\\"', inner)
-            return f'"<{inner_escaped}>"'
-        n2 = re.sub(r'<[^>]+/?>', replacer, candidate)
-        if n2 not in candidates_tried:
-            candidates_tried.add(n2)
-            try:
-                return json.loads(n2)
-            except Exception:
-                pass
-
-    # Final brute-force attempt:
-    #  - replace all occurrences of <...> with a JSON-safe quoted and escaped version
-    # This is aggressive and will change non-tag content, but only used as last resort.
-    def brute_force_all_tags(s: str) -> str:
-        def rep(m):
-            tag = m.group(0)
-            inner = tag[1:-1]
-            inner_escaped = re.sub(r'(?<!\\)"', r'\\"', inner)
-            return f'"<{inner_escaped}>"'
-        return re.sub(r'<[^>]+/?>', rep, s)
-
-    final_candidate = brute_force_all_tags(raw)
-    try:
-        return json.loads(final_candidate)
-    except Exception as final_exc:
-        # Provide detailed debug information
-        debug_info = {
-            "error": str(final_exc),
-            "raw_snippet": raw[:1000],
-        }
-        logger.error("safe_parse_llm_output failed: %s", debug_info)
-        # raise a JSONDecodeError with more context
-        raise json.JSONDecodeError(
-            f"safe_parse_llm_output: all attempts failed. last error: {final_exc}",
-            raw,
-            0
-        )
 
 @tool
 def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     """
     解析自然语言实验需求，生成完整的XDL协议（自动补全硬件、试剂、步骤）
     """
-    prompt = f"""
-    你是实验调度助手，请从以下描述中提取实验信息,输出为JSON，内容为英文，直接输出不用解释：
-    - 实验类型(type)
-    - 目标物(target)
-    - 样品编号(sample_id)
-    - 任何其他参数(parameters)
-    参考输入输出格式如下,严格遵循格式。根据常识尽可能补全内容，若实在没有的字段给出空： 
-    示例1：用户输入"我要做ELISA实验，目标物是TNF-α，样品编号T2024，稀释倍数10，孵育时间1.5h"
-    输出：
-     {{
-     "type": "ELISA",
-     "target": "TNF-α",
-     "sample_id": "T2024",
-     "devices": plate_reader,
-     "parameters": {{
-       "dilution_factor": 10,
-       "incubate_time": "1.5h"
-     }}
-   }}
-    用户输入: {user_input}
-    """
-    response = llm.invoke(prompt)
+
+    def filter_illegal_chars(llm_output: str) -> str:
+        json_pattern = re.compile(r'```(?:json)?\s*\n([\s\S]*?)\n```', re.IGNORECASE)
+        s = llm_output.content.encode('utf-8').decode('utf-8')  
+        # print("解析llm_output内容：==========", s)
+        match = json_pattern.search(s)
+        if match:
+            pure_json = match.group(1).strip()
+        else:
+            pure_json = s.strip()
+        # print("解析pure_json1内容：==========", pure_json)
+        # 步骤3：容错解析
+        try:
+            # 额外修复℃编码问题（可选）
+            pure_json = pure_json.replace('\xc2\xb0C', '°C')
+            # print("解析pure_json2内容：==========", pure_json)
+            llm_data = json.loads(pure_json)
+            # print("解析成功：", llm_data)
+            return llm_data
+        except json.JSONDecodeError as e:
+            print("解析失败==========")
+            raise e
+    XDL_prompt_filled = XDL_prompt.format(user_input=user_input)
+    response = llm.invoke(XDL_prompt_filled)
+    raw = response.content.strip()
+    if response.content is None or not response.content.strip():
+        print("LLM未返回内容response", response)
+        return {"status": "error", "message": "LLM未返回内容"}
+    exp_info = filter_illegal_chars(response)
+    # # 解析 JSON
+    # try:
+    #     exp_info = json.loads(raw)
+    # except json.JSONDecodeError as e:
+    #     print("解析失败，LLM返回:", repr(raw))
+    #     raise e
     
-    exp_info = json.loads(response.content)
-    print(exp_info)
+    print("--------exp_info-------",exp_info)
 
     # 1. 基础参数补全与校验
     exp_type = exp_info.get("type", "").strip().upper()
@@ -320,7 +140,7 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     #     print("exp_type, target missing",exp_type,target)
     #     raise ValueError("必须包含 type（实验类型）和 target（目标分子）")
 
-    # 提取关键参数（默认值兜底）
+    # 提取关键参数（默认值兜底
     params_dilution = parameters.get("dilution_factor", 1)
     params_incubate = parameters.get("incubate_time", "2h")
 
@@ -337,8 +157,18 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
 
     # 执行LLM调用并安全解析
     llm_output = llm.invoke(prompt_xdl)
-    print("LLM原始输出：", llm_output)
-    llm_data = safe_parse_llm_output(llm_output)
+    # print("LLM原始输出：", llm_output.content.encode('utf-8') if llm_output.content else b"")
+    if llm_output.content is None or not llm_output.content.strip():
+        print("LLM未返回内容", llm_output)
+        return {"status": "error", "message": "LLM未返回内容"}
+    # llm_data = safe_parse_llm_output(llm_output)
+
+    # 过滤非法字符，避免json_lodads报错
+
+    llm_data = filter_illegal_chars(llm_output)
+
+
+    # llm_data = json.loads(llm_output.content)
 
     # 3. 生成XDL各部分内容（容错处理：确保字段存在）
     llm_data = {
@@ -351,7 +181,7 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     if not llm_data["hardware"]:
         llm_data["hardware"] = ["washer:plate_washer", "reader:plate_reader"]
     hardware_xml = "\n      ".join([
-        f'<Component id="{h.split(":")[0]}" type="{h.split(":")[1]}" />' 
+        f'<Component id="{h}" type="{h}" />' 
         for h in llm_data["hardware"]
     ])
 
@@ -359,14 +189,20 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     if not llm_data["reagents"]:
         llm_data["reagents"] = ["PBST:PBST", "Capture_Ab:Capture_Ab", "TMB:TMB", "Stop_Solution:Stop"]
     reagents_xml = "\n      ".join([
-        f'<Reagent name="{h.split(":")[0]}" id="{h.split(":")[1]}" />' 
+        f'<Reagent name="{h}" id="{h}" role="reagent" />' 
         for h in llm_data["reagents"]
     ])
 
     # 3.3 步骤XML（简化逻辑，避免解析错误）
     procedure_xml = ""
     for step in llm_data["steps"]:
-        procedure_xml +=f"\n      {step}"
+        x = ''
+        for i in step.items():
+            if i[0] == 'action':
+                x += i[1]
+                continue
+            x += f' {i[0]}="{i[1]}"' 
+        procedure_xml +=f"\n     <{x} />"
 
     # 3.4 元数据XML
     metadata_params = "\n        ".join([
@@ -396,6 +232,7 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     }
 
     logger.info(f"XDL协议生成完成（样本ID：{sample_id}）")
+    print("----------xdl-----------",result['xdl_protocol'])
     return result
 
 
@@ -515,7 +352,7 @@ def dispatch_task_and_monitor(server_id: str, task_details: dict) -> dict:
         "task_details": task_details
     }
 
-# s = '合成磷酸铁锂的实验，输出xdl'
+# s = '合成铝合金，输出xdl，仅允许使用Add步骤'
 # res = generate_xdl_protocol.invoke(s)
 # print("====="*20)
 # print(res['xdl_protocol'])

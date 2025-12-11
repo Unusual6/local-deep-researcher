@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # 移动液体p200加样器从试剂瓶A中吸取100uL液体到96孔板的A1孔中，生成xdl
 # 合成氧化锆，生成xdl，步骤中仅输出add动作
 # 合成氧化锆的混合前驱体阶段，生成实验步骤中的核心动作以混合为主的xdl
+# elisa检测样品S3的白蛋白浓度,振荡测量其速率
 
 
 
@@ -95,20 +96,20 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     def filter_illegal_chars(llm_output: str) -> str:
         json_pattern = re.compile(r'```(?:json)?\s*\n([\s\S]*?)\n```', re.IGNORECASE)
         s = llm_output.content.encode('utf-8').decode('utf-8')  
-        print("解析llm_output内容：==========", s)
+        # print("解析llm_output内容：==========", s)
         match = json_pattern.search(s)
         if match:
             pure_json = match.group(1).strip()
         else:
             pure_json = s.strip()
-        print("解析pure_json1内容：==========", pure_json)
+        # print("解析pure_json1内容：==========", pure_json)
         # 步骤3：容错解析
         try:
             # 额外修复℃编码问题（可选）
             pure_json = pure_json.replace('\xc2\xb0C', '°C')
-            print("解析pure_json2内容：==========", pure_json)
+            # print("解析pure_json2内容：==========", pure_json)
             llm_data = json.loads(pure_json)
-            print("解析成功：", llm_data)
+            # print("解析成功：", llm_data)
             return llm_data
         except json.JSONDecodeError as e:
             print("解析失败==========")
@@ -127,7 +128,7 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     #     print("解析失败，LLM返回:", repr(raw))
     #     raise e
     
-    print(exp_info)
+    print("--------exp_info-------",exp_info)
 
     # 1. 基础参数补全与校验
     exp_type = exp_info.get("type", "").strip().upper()
@@ -156,7 +157,7 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
 
     # 执行LLM调用并安全解析
     llm_output = llm.invoke(prompt_xdl)
-    print("LLM原始输出：", llm_output.content.encode('utf-8') if llm_output.content else b"")
+    # print("LLM原始输出：", llm_output.content.encode('utf-8') if llm_output.content else b"")
     if llm_output.content is None or not llm_output.content.strip():
         print("LLM未返回内容", llm_output)
         return {"status": "error", "message": "LLM未返回内容"}
@@ -231,6 +232,7 @@ def generate_xdl_protocol(user_input)-> Dict[str, Any]:
     }
 
     logger.info(f"XDL协议生成完成（样本ID：{sample_id}）")
+    print("----------xdl-----------",result['xdl_protocol'])
     return result
 
 
