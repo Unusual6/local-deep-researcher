@@ -193,7 +193,7 @@ main.add_edge(START, "commander")
 main.add_conditional_edges("commander", route_commander,
                            ["bio_agent", "chem_agent"])
 main_app = main.compile()
-display(Image(main_app.get_graph().draw_mermaid_png()))
+# display(Image(main_app.get_graph().draw_mermaid_png()))
 # ---------------------------------------------------------------------
 # -------------------------- 测试执行 --------------------------------
 # ---------------------------------------------------------------------
