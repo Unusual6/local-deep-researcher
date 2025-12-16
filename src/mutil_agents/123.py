@@ -39,7 +39,7 @@ def human_approval_node(state: AgentState) -> AgentState:
         "role": "human",
         "content": f"""
 🔍 等待人工输入程序编号：
-- 可选范围：0 ~ {len(PROGRAM_LIST)-1}
+- 可选范围：1 ~ {len(PROGRAM_LIST)}
 - 操作步骤：
   1. 打开 Studio 右侧「State」面板；
   2. 找到 `selected_program_idx` 字段；

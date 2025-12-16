@@ -2,6 +2,7 @@ import src.gateway.gatewaySDK as gatewaySDK
 import time 
 import threading
 from flask import Flask,request
+from .zuofei_tools import extract_params_to_dict,program_manager
 Online=False
 app = Flask(__name__)
 config={ 
@@ -72,6 +73,8 @@ def onsub(topicName,data):
       if serverName=="getlist":
          logInfo("获取脚本成功")
          print(data["params"]["params"])
+         program_list = extract_params_to_dict(data["params"]["params"])
+         program_manager.program_list = program_list
    if cmd=="event":
       if(serverName=="online"):
          online=data["params"]["online"]
@@ -81,7 +84,6 @@ def onsub(topicName,data):
          if(online==0):
             Online=False
             logInfo("设备离线")
-   print("Onsub done! Online=",Online)
 @app.route('/test',methods=['POST'])
 def test():
     json_data = request.get_json(silent=True)

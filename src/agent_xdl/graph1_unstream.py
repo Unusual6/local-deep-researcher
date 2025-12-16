@@ -27,6 +27,8 @@ model_with_tools = ChatOpenAI(
     ).bind_tools(tools=tools)
 
 def call_model(state: MessagesState):
+    prompt =  [{"role": "human", "content": "优先调用工具"}]
+    
     messages = state["messages"]
     response = model_with_tools.invoke(messages)
 

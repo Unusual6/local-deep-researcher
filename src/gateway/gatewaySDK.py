@@ -31,6 +31,7 @@ def publish(topic,msg):
      global client,config
      json_string = json.dumps(msg,  ensure_ascii=False)
      client.publish(topic,json_string)
+     print(topic,"pubulish done!")
 def init(serverIP,port,topicNames,functionOnsub):
     print("-------gw init doing!---------")
     global LaGaAppKey,LaGaSecret,functionc
