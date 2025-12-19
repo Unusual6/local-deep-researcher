@@ -5,6 +5,7 @@ from flask import Flask,request
 from .zuofei_tools import extract_params_to_dict,program_manager
 Online=False
 app = Flask(__name__)
+app.debug = False
 config={ 
     "productKey":"rx8HhkWQ337sCAFB",
      "devCode":"Y879",
@@ -75,6 +76,7 @@ def onsub(topicName,data):
          print(data["params"]["params"])
          program_list = extract_params_to_dict(data["params"]["params"])
          program_manager.program_list = program_list
+         logInfo(f"[a.py回调] 程序列表更新：{program_manager.program_list} 时间：{time.time()}")
    if cmd=="event":
       if(serverName=="online"):
          online=data["params"]["online"]
