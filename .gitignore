@@ -25,3 +25,4 @@ wheels/
 .env
 .langgraph_api/
 *.pckl
+/.langgraph_api/
