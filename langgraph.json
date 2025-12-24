@@ -5,7 +5,8 @@
       "multi-agent":"./src/mutil_agents/multi_agent_demo.py:main_app",
       "bio-agent":"./src/mutil_agents/bio_agent.py:bio_agent",
       "unstream":"./src/agent_xdl/graph1_unstream.py:graph",
-      "zuofei":"./src/mutil_agents/zuofei.py:graph"
+      "zuofei":"./src/O_devices/zuofei/zuofei.py:graph",
+      "zuofei_unstream":"./src/O_devices/zuofei/zuofei_unstream.py:graph"
      },
       "python_version": "3.11",
     "env": "./.env",
